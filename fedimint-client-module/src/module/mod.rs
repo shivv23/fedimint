@@ -4,6 +4,7 @@ use std::collections::BTreeSet;
 use std::fmt::Debug;
 use std::pin::Pin;
 use std::sync::{Arc, Weak};
+use std::time::SystemTime;
 use std::{ffi, marker, ops};
 
 use anyhow::{anyhow, bail};
@@ -469,6 +470,29 @@ where
         self.client.get().operation_exists(op_id).await
     }
 
+    pub async fn operation_log_entry_exists(&self, op_id: OperationId) -> bool {
+        self.client
+            .get()
+            .operation_log()
+            .operation_log_entry_exists(op_id)
+            .await
+    }
+
+    pub async fn operation_log_entry_exists_dbtx(
+        &self,
+        dbtx: &mut DatabaseTransaction<'_>,
+        op_id: OperationId,
+    ) -> bool {
+        self.client
+            .get()
+            .operation_log()
+            .operation_log_entry_exists_dbtx(
+                &mut dbtx.global_dbtx(self.global_dbtx_access_token),
+                op_id,
+            )
+            .await
+    }
+
     pub async fn get_own_active_states(&self) -> Vec<(M::States, ActiveStateMeta)> {
         self.client
             .get()
@@ -705,6 +729,27 @@ where
                 operation_id,
                 operation_type,
                 serde_json::to_value(operation_meta).expect("Can't fail"),
+            )
+            .await;
+    }
+
+    pub async fn add_operation_log_entry_dbtx_with_creation_time(
+        &self,
+        dbtx: &mut DatabaseTransaction<'_>,
+        operation_id: OperationId,
+        operation_type: &str,
+        operation_meta: impl serde::Serialize,
+        creation_time: SystemTime,
+    ) {
+        self.client
+            .get()
+            .operation_log()
+            .add_operation_log_entry_dbtx_with_creation_time(
+                &mut dbtx.global_dbtx(self.global_dbtx_access_token),
+                operation_id,
+                operation_type,
+                serde_json::to_value(operation_meta).expect("Can't fail"),
+                creation_time,
             )
             .await;
     }
